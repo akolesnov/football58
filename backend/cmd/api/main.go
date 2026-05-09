@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/akolesnov/football58/backend/internal/config"
 	"github.com/akolesnov/football58/backend/internal/db"
+	httpapi "github.com/akolesnov/football58/backend/internal/http"
 )
 
 func main() {
@@ -19,13 +19,13 @@ func main() {
 	}
 	defer postgres.Close()
 
-	http.HandleFunc("/", hello)
+	healthHandler := httpapi.NewHealthHandler(postgres)
 
-	if err := http.ListenAndServe(cfg.HTTPAddr, nil); err != nil {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", healthHandler.Health)
+	mux.HandleFunc("/health/db", healthHandler.Database)
+
+	if err := http.ListenAndServe(cfg.HTTPAddr, mux); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func hello(w http.ResponseWriter, _ *http.Request) {
-	fmt.Fprintln(w, "hello world")
 }
