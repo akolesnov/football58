@@ -3,7 +3,6 @@ package httpapi
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"net/http"
 	"time"
 )
@@ -19,7 +18,7 @@ func NewHealthHandler(db *sql.DB) *HealthHandler {
 }
 
 func (h *HealthHandler) Health(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{
+	WriteJSON(w, http.StatusOK, map[string]string{
 		"status": "ok",
 	})
 }
@@ -29,21 +28,15 @@ func (h *HealthHandler) Database(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := h.db.PingContext(ctx); err != nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
+		WriteJSON(w, http.StatusServiceUnavailable, map[string]string{
 			"status":   "error",
 			"database": "unavailable",
 		})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{
+	WriteJSON(w, http.StatusOK, map[string]string{
 		"status":   "ok",
 		"database": "ok",
 	})
-}
-
-func writeJSON(w http.ResponseWriter, status int, payload any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload)
 }
