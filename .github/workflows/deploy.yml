@@ -32,5 +32,7 @@ jobs:
             set -e
             cd \"$VPS_PROJECT_PATH\"
             git pull --ff-only origin main
-            docker compose -f docker-compose.yml up -d --build
+            docker compose -f docker-compose.yml up -d postgres
+            docker compose -f docker-compose.yml --profile tools run --rm migrate
+            docker compose -f docker-compose.yml up -d --build api
           "

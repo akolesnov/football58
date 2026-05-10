@@ -11,7 +11,10 @@ import (
 )
 
 func main() {
-	cfg := config.Load()
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	postgres, err := db.OpenPostgres(context.Background(), cfg.DatabaseURL)
 	if err != nil {
