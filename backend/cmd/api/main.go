@@ -25,6 +25,9 @@ func main() {
 	defer postgres.Close()
 
 	healthHandler := httpapi.NewHealthHandler(postgres)
+	gameRepository := repository.NewGameRepository(postgres)
+	gameService := service.NewGameService(gameRepository)
+	gameHandler := httpapi.NewGameHandler(gameService)
 	userRepository := repository.NewUserRepository(postgres)
 	userService := service.NewUserService(userRepository)
 	userHandler := httpapi.NewUserHandler(userService)
@@ -35,6 +38,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler.Health)
 	mux.HandleFunc("/health/db", healthHandler.Database)
+	mux.HandleFunc("POST /games", gameHandler.Create)
 	mux.HandleFunc("POST /users/telegram/upsert", userHandler.UpsertTelegram)
 	mux.HandleFunc("GET /users/{id}", userHandler.GetByID)
 	mux.HandleFunc("GET /users/by-telegram/{telegram_id}", userHandler.GetByTelegramID)
