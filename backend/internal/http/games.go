@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/akolesnov/football58/backend/internal/domain"
@@ -44,6 +45,42 @@ type gameResponse struct {
 
 func NewGameHandler(games *service.GameService) *GameHandler {
 	return &GameHandler{games: games}
+}
+
+func (h *GameHandler) List(w http.ResponseWriter, r *http.Request) {
+	games, err := h.games.List(r.Context())
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "list_games_failed", "не удалось получить игры")
+		return
+	}
+
+	response := make([]gameResponse, 0, len(games))
+	for _, game := range games {
+		response = append(response, gameToResponse(game))
+	}
+
+	WriteJSON(w, http.StatusOK, response)
+}
+
+func (h *GameHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		WriteError(w, http.StatusBadRequest, "invalid_game_id", "некорректный id игры")
+		return
+	}
+
+	game, err := h.games.GetByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			WriteError(w, http.StatusNotFound, "game_not_found", "игра не найдена")
+			return
+		}
+
+		WriteError(w, http.StatusInternalServerError, "get_game_failed", "не удалось получить игру")
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, gameToResponse(game))
 }
 
 func (h *GameHandler) Create(w http.ResponseWriter, r *http.Request) {

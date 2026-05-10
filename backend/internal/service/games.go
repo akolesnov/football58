@@ -30,6 +30,14 @@ func NewGameService(games *repository.GameRepository) *GameService {
 	return &GameService{games: games}
 }
 
+func (s *GameService) GetByID(ctx context.Context, id int64) (domain.Game, error) {
+	return s.games.GetByID(ctx, id)
+}
+
+func (s *GameService) List(ctx context.Context) ([]domain.Game, error) {
+	return s.games.List(ctx)
+}
+
 func (s *GameService) Create(ctx context.Context, game domain.Game) (domain.Game, error) {
 	if game.VenueID <= 0 {
 		return domain.Game{}, ErrGameVenueRequired

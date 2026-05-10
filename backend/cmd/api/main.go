@@ -39,6 +39,8 @@ func main() {
 	mux.HandleFunc("/health", healthHandler.Health)
 	mux.HandleFunc("/health/db", healthHandler.Database)
 	mux.HandleFunc("POST /games", gameHandler.Create)
+	mux.HandleFunc("GET /games", gameHandler.List)
+	mux.HandleFunc("GET /games/{id}", gameHandler.GetByID)
 	mux.HandleFunc("POST /users/telegram/upsert", userHandler.UpsertTelegram)
 	mux.HandleFunc("GET /users/{id}", userHandler.GetByID)
 	mux.HandleFunc("GET /users/by-telegram/{telegram_id}", userHandler.GetByTelegramID)
