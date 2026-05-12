@@ -28,8 +28,20 @@ type gameMemberResponse struct {
 	CancelledAt    *time.Time `json:"cancelled_at,omitempty"`
 }
 
+type joinGameMemberRequest struct {
+	UserID        *int64 `json:"user_id"`
+	AddedByUserID *int64 `json:"added_by_user_id"`
+	Name          string `json:"name"`
+	Source        string `json:"source"`
+}
+
+type joinGameMemberResponse struct {
+	Game   gameDetailsResponse `json:"game"`
+	Member gameMemberResponse  `json:"member"`
+}
+
 type cancelGameMemberResponse struct {
-	Game     gameResponse        `json:"game"`
+	Game     gameDetailsResponse `json:"game"`
 	Member   gameMemberResponse  `json:"member"`
 	Promoted *gameMemberResponse `json:"promoted,omitempty"`
 }
@@ -40,6 +52,59 @@ type cancelOwnTelegramMembershipRequest struct {
 
 func NewGameMemberHandler(members *service.GameMemberService) *GameMemberHandler {
 	return &GameMemberHandler{members: members}
+}
+
+func (h *GameMemberHandler) Join(w http.ResponseWriter, r *http.Request) {
+	gameID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || gameID <= 0 {
+		WriteError(w, http.StatusBadRequest, "invalid_game_id", "некорректный id игры")
+		return
+	}
+
+	var request joinGameMemberRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		WriteError(w, http.StatusBadRequest, "invalid_json", "некорректный JSON")
+		return
+	}
+
+	result, err := h.members.JoinGame(r.Context(), service.JoinGameInput{
+		GameID:        gameID,
+		UserID:        request.UserID,
+		AddedByUserID: request.AddedByUserID,
+		Name:          request.Name,
+		Source:        request.Source,
+	})
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			WriteError(w, http.StatusNotFound, "game_not_found", "игра не найдена")
+			return
+		}
+		if errors.Is(err, service.ErrGameNotOpen) {
+			WriteError(w, http.StatusConflict, "game_not_open", "запись на игру закрыта")
+			return
+		}
+		if errors.Is(err, service.ErrGameMemberNameRequired) {
+			WriteError(w, http.StatusBadRequest, "member_name_required", "имя участника обязательно")
+			return
+		}
+		if errors.Is(err, service.ErrGameMemberSourceInvalid) {
+			WriteError(w, http.StatusBadRequest, "member_source_invalid", "некорректный источник записи")
+			return
+		}
+
+		WriteError(w, http.StatusInternalServerError, "join_game_failed", "не удалось записать участника")
+		return
+	}
+
+	WriteJSON(w, http.StatusCreated, joinGameMemberResponse{
+		Game: gameDetailsToResponse(service.GameDetails{
+			Game:          result.Game,
+			Members:       result.Members,
+			ActiveCount:   result.ActiveCount,
+			WaitlistCount: result.WaitlistCount,
+		}),
+		Member: gameMemberToResponse(result.Member),
+	})
 }
 
 func (h *GameMemberHandler) Cancel(w http.ResponseWriter, r *http.Request) {
@@ -106,7 +171,12 @@ func (h *GameMemberHandler) CancelOwnTelegramMembership(w http.ResponseWriter, r
 
 func writeCancelGameMemberResponse(w http.ResponseWriter, result service.CancelMemberResult) {
 	response := cancelGameMemberResponse{
-		Game:   gameToResponse(result.Game),
+		Game: gameDetailsToResponse(service.GameDetails{
+			Game:          result.Game,
+			Members:       result.Members,
+			ActiveCount:   result.ActiveCount,
+			WaitlistCount: result.WaitlistCount,
+		}),
 		Member: gameMemberToResponse(result.Member),
 	}
 	if result.Promoted != nil {

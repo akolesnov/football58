@@ -30,14 +30,20 @@ type JoinGameInput struct {
 }
 
 type JoinGameResult struct {
-	Game   domain.Game
-	Member domain.GameMember
+	Game          domain.Game
+	Members       []domain.GameMember
+	ActiveCount   int
+	WaitlistCount int
+	Member        domain.GameMember
 }
 
 type CancelMemberResult struct {
-	Game     domain.Game
-	Member   domain.GameMember
-	Promoted *domain.GameMember
+	Game          domain.Game
+	Members       []domain.GameMember
+	ActiveCount   int
+	WaitlistCount int
+	Member        domain.GameMember
+	Promoted      *domain.GameMember
 }
 
 func NewGameMemberService(db *sql.DB) *GameMemberService {
@@ -110,13 +116,22 @@ func (s *GameMemberService) JoinGame(ctx context.Context, input JoinGameInput) (
 		return JoinGameResult{}, err
 	}
 
+	gameMembers, err := members.ListByGameID(ctx, game.ID)
+	if err != nil {
+		return JoinGameResult{}, err
+	}
+	details := buildGameDetails(game, gameMembers)
+
 	if err := tx.Commit(); err != nil {
 		return JoinGameResult{}, err
 	}
 
 	return JoinGameResult{
-		Game:   game,
-		Member: member,
+		Game:          details.Game,
+		Members:       details.Members,
+		ActiveCount:   details.ActiveCount,
+		WaitlistCount: details.WaitlistCount,
+		Member:        member,
 	}, nil
 }
 
@@ -223,9 +238,18 @@ func cancelMemberInTx(
 	}
 
 	if member.Status == domain.GameMemberStatusCancelled {
+		gameMembers, err := members.ListByGameID(ctx, game.ID)
+		if err != nil {
+			return CancelMemberResult{}, err
+		}
+		details := buildGameDetails(game, gameMembers)
+
 		return CancelMemberResult{
-			Game:   game,
-			Member: member,
+			Game:          details.Game,
+			Members:       details.Members,
+			ActiveCount:   details.ActiveCount,
+			WaitlistCount: details.WaitlistCount,
+			Member:        member,
 		}, nil
 	}
 
@@ -256,10 +280,19 @@ func cancelMemberInTx(
 		return CancelMemberResult{}, err
 	}
 
+	gameMembers, err := members.ListByGameID(ctx, game.ID)
+	if err != nil {
+		return CancelMemberResult{}, err
+	}
+	details := buildGameDetails(game, gameMembers)
+
 	return CancelMemberResult{
-		Game:     game,
-		Member:   cancelledMember,
-		Promoted: promoted,
+		Game:          details.Game,
+		Members:       details.Members,
+		ActiveCount:   details.ActiveCount,
+		WaitlistCount: details.WaitlistCount,
+		Member:        cancelledMember,
+		Promoted:      promoted,
 	}, nil
 }
 

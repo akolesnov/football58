@@ -43,6 +43,13 @@ type gameResponse struct {
 	CreatedAt         time.Time `json:"created_at"`
 }
 
+type gameDetailsResponse struct {
+	gameResponse
+	ActiveCount   int                  `json:"active_count"`
+	WaitlistCount int                  `json:"waitlist_count"`
+	Members       []gameMemberResponse `json:"members"`
+}
+
 func NewGameHandler(games *service.GameService) *GameHandler {
 	return &GameHandler{games: games}
 }
@@ -69,7 +76,7 @@ func (h *GameHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	game, err := h.games.GetByID(r.Context(), id)
+	details, err := h.games.GetDetailsByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			WriteError(w, http.StatusNotFound, "game_not_found", "игра не найдена")
@@ -80,7 +87,7 @@ func (h *GameHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	WriteJSON(w, http.StatusOK, gameToResponse(game))
+	WriteJSON(w, http.StatusOK, gameDetailsToResponse(details))
 }
 
 func (h *GameHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -151,5 +158,19 @@ func gameToResponse(game domain.Game) gameResponse {
 		TelegramMessageID: game.TelegramMessageID,
 		Version:           game.Version,
 		CreatedAt:         game.CreatedAt,
+	}
+}
+
+func gameDetailsToResponse(details service.GameDetails) gameDetailsResponse {
+	members := make([]gameMemberResponse, 0, len(details.Members))
+	for _, member := range details.Members {
+		members = append(members, gameMemberToResponse(member))
+	}
+
+	return gameDetailsResponse{
+		gameResponse:  gameToResponse(details.Game),
+		ActiveCount:   details.ActiveCount,
+		WaitlistCount: details.WaitlistCount,
+		Members:       members,
 	}
 }

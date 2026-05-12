@@ -26,7 +26,8 @@ func main() {
 
 	healthHandler := httpapi.NewHealthHandler(postgres)
 	gameRepository := repository.NewGameRepository(postgres)
-	gameService := service.NewGameService(gameRepository)
+	gameMemberRepository := repository.NewGameMemberRepository(postgres)
+	gameService := service.NewGameService(gameRepository, gameMemberRepository)
 	gameHandler := httpapi.NewGameHandler(gameService)
 	gameMemberService := service.NewGameMemberService(postgres)
 	gameMemberHandler := httpapi.NewGameMemberHandler(gameMemberService)
@@ -43,6 +44,7 @@ func main() {
 	mux.HandleFunc("POST /games", gameHandler.Create)
 	mux.HandleFunc("GET /games", gameHandler.List)
 	mux.HandleFunc("GET /games/{id}", gameHandler.GetByID)
+	mux.HandleFunc("POST /games/{id}/members", gameMemberHandler.Join)
 	mux.HandleFunc("POST /games/{id}/members/{member_id}/cancel", gameMemberHandler.Cancel)
 	mux.HandleFunc("POST /games/{id}/me/cancel", gameMemberHandler.CancelOwnTelegramMembership)
 	mux.HandleFunc("POST /users/telegram/upsert", userHandler.UpsertTelegram)
