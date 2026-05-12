@@ -10,10 +10,10 @@ import (
 )
 
 type GameRepository struct {
-	db *sql.DB
+	db dbtx
 }
 
-func NewGameRepository(db *sql.DB) *GameRepository {
+func NewGameRepository(db dbtx) *GameRepository {
 	return &GameRepository{db: db}
 }
 
@@ -68,6 +68,27 @@ WHERE id = $1;`
 		}
 
 		return domain.Game{}, fmt.Errorf("get game by id: %w", err)
+	}
+
+	return game, nil
+}
+
+func (r *GameRepository) GetByIDForUpdate(ctx context.Context, id int64) (domain.Game, error) {
+	const query = `
+SELECT id, venue_id, starts_at, duration_minutes, min_players, max_players,
+    price_rub, notes, status, created_by_user_id, telegram_chat_id,
+    telegram_message_id, version, created_at
+FROM games
+WHERE id = $1
+FOR UPDATE;`
+
+	game, err := scanGame(r.db.QueryRowContext(ctx, query, id))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.Game{}, domain.ErrNotFound
+		}
+
+		return domain.Game{}, fmt.Errorf("get game by id for update: %w", err)
 	}
 
 	return game, nil
@@ -183,6 +204,27 @@ RETURNING id, venue_id, starts_at, duration_minutes, min_players, max_players,
 		}
 
 		return domain.Game{}, fmt.Errorf("set game status: %w", err)
+	}
+
+	return game, nil
+}
+
+func (r *GameRepository) IncrementVersion(ctx context.Context, id int64) (domain.Game, error) {
+	const query = `
+UPDATE games
+SET version = version + 1
+WHERE id = $1
+RETURNING id, venue_id, starts_at, duration_minutes, min_players, max_players,
+    price_rub, notes, status, created_by_user_id, telegram_chat_id,
+    telegram_message_id, version, created_at;`
+
+	game, err := scanGame(r.db.QueryRowContext(ctx, query, id))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.Game{}, domain.ErrNotFound
+		}
+
+		return domain.Game{}, fmt.Errorf("increment game version: %w", err)
 	}
 
 	return game, nil
