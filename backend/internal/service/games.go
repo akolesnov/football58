@@ -21,6 +21,8 @@ var ErrGameStartsAtRequired = errors.New("game starts_at is required")
 var ErrGameDurationInvalid = errors.New("game duration is invalid")
 var ErrGamePlayersLimitInvalid = errors.New("game players limit is invalid")
 var ErrGamePriceInvalid = errors.New("game price is invalid")
+var ErrTelegramChatIDRequired = errors.New("telegram chat id is required")
+var ErrTelegramMessageIDRequired = errors.New("telegram message id is required")
 
 type GameService struct {
 	games   *repository.GameRepository
@@ -84,6 +86,20 @@ func (s *GameService) Create(ctx context.Context, game domain.Game) (domain.Game
 	}
 
 	return s.games.Create(ctx, game)
+}
+
+func (s *GameService) UpdateTelegramMessage(ctx context.Context, id, chatID, messageID int64) (domain.Game, error) {
+	if id <= 0 {
+		return domain.Game{}, ErrGameRequired
+	}
+	if chatID == 0 {
+		return domain.Game{}, ErrTelegramChatIDRequired
+	}
+	if messageID <= 0 {
+		return domain.Game{}, ErrTelegramMessageIDRequired
+	}
+
+	return s.games.UpdateTelegramMessage(ctx, id, chatID, messageID)
 }
 
 func applyGameDefaults(game *domain.Game) {

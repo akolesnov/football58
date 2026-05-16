@@ -26,6 +26,11 @@ type createGameRequest struct {
 	CreatedByUserID *int64  `json:"created_by_user_id"`
 }
 
+type updateTelegramMessageRequest struct {
+	TelegramChatID    int64 `json:"telegram_chat_id"`
+	TelegramMessageID int64 `json:"telegram_message_id"`
+}
+
 type gameResponse struct {
 	ID                int64     `json:"id"`
 	VenueID           int64     `json:"venue_id"`
@@ -140,6 +145,41 @@ func (h *GameHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	WriteJSON(w, http.StatusCreated, gameToResponse(game))
+}
+
+func (h *GameHandler) UpdateTelegramMessage(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		WriteError(w, http.StatusBadRequest, "invalid_game_id", "некорректный id игры")
+		return
+	}
+
+	var request updateTelegramMessageRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		WriteError(w, http.StatusBadRequest, "invalid_json", "некорректный JSON")
+		return
+	}
+
+	game, err := h.games.UpdateTelegramMessage(r.Context(), id, request.TelegramChatID, request.TelegramMessageID)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			WriteError(w, http.StatusNotFound, "game_not_found", "игра не найдена")
+			return
+		}
+		if errors.Is(err, service.ErrTelegramChatIDRequired) {
+			WriteError(w, http.StatusBadRequest, "telegram_chat_id_required", "telegram_chat_id обязателен")
+			return
+		}
+		if errors.Is(err, service.ErrTelegramMessageIDRequired) {
+			WriteError(w, http.StatusBadRequest, "telegram_message_id_required", "telegram_message_id обязателен")
+			return
+		}
+
+		WriteError(w, http.StatusInternalServerError, "update_telegram_message_failed", "не удалось сохранить Telegram-сообщение")
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, gameToResponse(game))
 }
 
 func gameToResponse(game domain.Game) gameResponse {
