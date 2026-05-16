@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -176,6 +177,48 @@ func (h *GameHandler) UpdateTelegramMessage(w http.ResponseWriter, r *http.Reque
 		}
 
 		WriteError(w, http.StatusInternalServerError, "update_telegram_message_failed", "не удалось сохранить Telegram-сообщение")
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, gameToResponse(game))
+}
+
+func (h *GameHandler) Close(w http.ResponseWriter, r *http.Request) {
+	h.setStatus(w, r, h.games.Close, "close_game_failed")
+}
+
+func (h *GameHandler) Cancel(w http.ResponseWriter, r *http.Request) {
+	h.setStatus(w, r, h.games.Cancel, "cancel_game_failed")
+}
+
+func (h *GameHandler) Finish(w http.ResponseWriter, r *http.Request) {
+	h.setStatus(w, r, h.games.Finish, "finish_game_failed")
+}
+
+func (h *GameHandler) setStatus(
+	w http.ResponseWriter,
+	r *http.Request,
+	update func(context.Context, int64) (domain.Game, error),
+	internalCode string,
+) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		WriteError(w, http.StatusBadRequest, "invalid_game_id", "некорректный id игры")
+		return
+	}
+
+	game, err := update(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			WriteError(w, http.StatusNotFound, "game_not_found", "игра не найдена")
+			return
+		}
+		if errors.Is(err, service.ErrGameRequired) {
+			WriteError(w, http.StatusBadRequest, "invalid_game_id", "некорректный id игры")
+			return
+		}
+
+		WriteError(w, http.StatusInternalServerError, internalCode, "не удалось изменить статус игры")
 		return
 	}
 

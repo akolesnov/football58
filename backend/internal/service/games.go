@@ -102,6 +102,26 @@ func (s *GameService) UpdateTelegramMessage(ctx context.Context, id, chatID, mes
 	return s.games.UpdateTelegramMessage(ctx, id, chatID, messageID)
 }
 
+func (s *GameService) Close(ctx context.Context, id int64) (domain.Game, error) {
+	return s.setStatus(ctx, id, domain.GameStatusClosed)
+}
+
+func (s *GameService) Cancel(ctx context.Context, id int64) (domain.Game, error) {
+	return s.setStatus(ctx, id, domain.GameStatusCancelled)
+}
+
+func (s *GameService) Finish(ctx context.Context, id int64) (domain.Game, error) {
+	return s.setStatus(ctx, id, domain.GameStatusFinished)
+}
+
+func (s *GameService) setStatus(ctx context.Context, id int64, status string) (domain.Game, error) {
+	if id <= 0 {
+		return domain.Game{}, ErrGameRequired
+	}
+
+	return s.games.SetStatus(ctx, id, status)
+}
+
 func applyGameDefaults(game *domain.Game) {
 	if game.DurationMinutes == 0 {
 		game.DurationMinutes = defaultGameDurationMinutes
