@@ -5,6 +5,8 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -16,27 +18,59 @@ const (
 	envPostgresPort     = "POSTGRES_PORT"
 	envPostgresDB       = "POSTGRES_DB"
 	envPostgresSSLMode  = "POSTGRES_SSLMODE"
+	envTelegramBotToken = "TELEGRAM_BOT_TOKEN"
+	envAPIBaseURL       = "API_BASE_URL"
+	envTelegramAdminIDs = "TELEGRAM_ADMIN_IDS"
 )
 
-type Config struct {
+type APIConfig struct {
 	HTTPAddr    string
 	DatabaseURL string
 }
 
-func Load() (Config, error) {
+type BotConfig struct {
+	TelegramBotToken string
+	APIBaseURL       string
+	TelegramAdminIDs []int64
+}
+
+func LoadAPI() (APIConfig, error) {
 	httpAddr, err := requiredEnv(envHTTPAddr)
 	if err != nil {
-		return Config{}, err
+		return APIConfig{}, err
 	}
 
 	databaseURL, err := databaseURL()
 	if err != nil {
-		return Config{}, err
+		return APIConfig{}, err
 	}
 
-	return Config{
+	return APIConfig{
 		HTTPAddr:    httpAddr,
 		DatabaseURL: databaseURL,
+	}, nil
+}
+
+func LoadBot() (BotConfig, error) {
+	token, err := requiredEnv(envTelegramBotToken)
+	if err != nil {
+		return BotConfig{}, err
+	}
+
+	apiBaseURL, err := requiredEnv(envAPIBaseURL)
+	if err != nil {
+		return BotConfig{}, err
+	}
+
+	adminIDs, err := parseInt64List(os.Getenv(envTelegramAdminIDs), envTelegramAdminIDs)
+	if err != nil {
+		return BotConfig{}, err
+	}
+
+	return BotConfig{
+		TelegramBotToken: token,
+		APIBaseURL:       apiBaseURL,
+		TelegramAdminIDs: adminIDs,
 	}, nil
 }
 
@@ -92,4 +126,28 @@ func requiredEnv(key string) (string, error) {
 	}
 
 	return value, nil
+}
+
+func parseInt64List(value string, envName string) ([]int64, error) {
+	if strings.TrimSpace(value) == "" {
+		return nil, nil
+	}
+
+	parts := strings.Split(value, ",")
+	result := make([]int64, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+
+		number, err := strconv.ParseInt(part, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("некорректное значение переменной окружения %s: %s", envName, part)
+		}
+
+		result = append(result, number)
+	}
+
+	return result, nil
 }
