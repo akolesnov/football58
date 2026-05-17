@@ -3,6 +3,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    command: ["/app/api"]
     environment:
       HTTP_ADDR: ${HTTP_ADDR}
       POSTGRES_HOST: ${POSTGRES_HOST}
@@ -16,6 +17,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  bot:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["/app/bot"]
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      API_BASE_URL: ${API_BASE_URL}
+      TELEGRAM_ADMIN_IDS: ${TELEGRAM_ADMIN_IDS}
+    depends_on:
+      api:
+        condition: service_started
 
   migrate:
     image: migrate/migrate:v4.18.3
